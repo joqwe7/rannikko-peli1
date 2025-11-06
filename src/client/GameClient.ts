@@ -28,6 +28,11 @@ export class GameClient {
         this.ui.showLoadingState('Joining game...');
     }
 
+    public getCurrentPlayer(): any {
+        return this.currentPlayer;
+    }
+
+
 
 
     public build(buildingType: string, position: { x: number, y: number }): void {

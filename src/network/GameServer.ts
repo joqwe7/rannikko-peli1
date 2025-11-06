@@ -59,17 +59,33 @@ export class GameServer {
     }
 
     private handlePlayerJoin(socket: Socket, data: { name: string, role: PlayerRole }): void {
-        const player = this.gameState.addPlayer(socket.id, data.name, data.role);
-        this.activeSessions.set(socket.id, socket);
-        
-        // Send join confirmation to the player
-        socket.emit('joinConfirmed', {
-            playerId: socket.id,
-            player: player
-        });
-        
-        // Broadcast updated game state to all players
-        this.broadcastGameState();
+        try {
+            console.log(`Player joining: ${data.name} as ${data.role}`);
+            
+            // Validate input
+            if (!data.name || !data.role) {
+                socket.emit('error', { message: 'Invalid player data' });
+                return;
+            }
+
+            // Add player to game state
+            const player = this.gameState.addPlayer(socket.id, data.name, data.role);
+            this.activeSessions.set(socket.id, socket);
+            
+            console.log(`Player ${data.name} joined successfully`);
+            
+            // Send join confirmation to the player
+            socket.emit('joinConfirmed', {
+                playerId: socket.id,
+                player: player
+            });
+            
+            // Broadcast updated game state to all players
+            this.broadcastGameState();
+        } catch (error) {
+            console.error('Error handling player join:', error);
+            socket.emit('error', { message: 'Failed to join game' });
+        }
     }
 
     private broadcastGameState(): void {

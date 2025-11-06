@@ -37,14 +37,25 @@ export class NetworkManager extends EventEmitter {
         });
 
         this.socket.on('error', (error: any) => {
+            console.error('Socket error:', error);
             this.emit('error', error);
+        });
+
+        this.socket.on('disconnect', () => {
+            console.log('Disconnected from server');
+            this.emit('disconnect');
         });
     }
 
-    public sendAction(action: string, data: any): void {
-        this.socket.emit('gameAction', {
-            type: action,
-            payload: data
-        } as GameAction);
+    public sendAction(type: string, data: any): void {
+        console.log(`Sending action: ${type}`, data);
+        if (type === 'gameAction') {
+            this.socket.emit('gameAction', {
+                type: data.type,
+                payload: data.payload
+            } as GameAction);
+        } else {
+            this.socket.emit(type, data);
+        }
     }
 }
