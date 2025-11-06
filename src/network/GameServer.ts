@@ -59,13 +59,22 @@ export class GameServer {
     }
 
     private handlePlayerJoin(socket: Socket, data: { name: string, role: PlayerRole }): void {
-        this.gameState.addPlayer(socket.id, data.name, data.role);
+        const player = this.gameState.addPlayer(socket.id, data.name, data.role);
         this.activeSessions.set(socket.id, socket);
+        
+        // Send join confirmation to the player
+        socket.emit('joinConfirmed', {
+            playerId: socket.id,
+            player: player
+        });
+        
+        // Broadcast updated game state to all players
         this.broadcastGameState();
     }
 
     private broadcastGameState(): void {
-        this.io.emit('gameStateUpdate', this.gameState.getPublicState());
+        const state = this.gameState.getPublicState();
+        this.io.emit('gameStateUpdate', state);
     }
 
     private handleGameAction(socket: Socket, action: GameAction): void {
@@ -95,9 +104,11 @@ export class GameServer {
     private handleBuildAction(player: Player, payload: GameAction['payload']): void {
         if (!payload.position || !payload.actionType) return;
         this.gameState.addBuilding(player.team, {
-            type: payload.actionType as any,
+            type: payload.actionType as 'Aallonmurtaja' | 'Tutkimuskeskus' | 'Ympäristöasema',
             position: payload.position,
-            health: 100
+            health: 100,
+            owner: player.team,
+            level: 1
         });
     }
 

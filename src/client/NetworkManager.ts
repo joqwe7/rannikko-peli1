@@ -16,6 +16,14 @@ export class NetworkManager extends EventEmitter {
     }
 
     private setupEventHandlers(): void {
+        this.socket.on('connect', () => {
+            this.emit('connected');
+        });
+
+        this.socket.on('joinConfirmed', (data: { playerId: string, player: any }) => {
+            this.emit('joinConfirmed', data);
+        });
+
         this.socket.on('gameStateUpdate', (state: any) => {
             this.emit('gameStateUpdate', state);
         });

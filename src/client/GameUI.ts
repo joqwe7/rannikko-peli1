@@ -18,6 +18,90 @@ export class GameUI {
     private researchSprites: Map<string, HTMLImageElement>;
     private currentTeam: Team | null = null;
     private selectedEntity: { type: 'building' | 'research', data: any } | null = null;
+    private loadingElement: HTMLElement | null = null;
+    private gameUIElement: HTMLElement | null = null;
+
+    public showLoadingState(message: string): void {
+        if (!this.loadingElement) {
+            this.loadingElement = document.createElement('div');
+            this.loadingElement.id = 'loading';
+            document.body.appendChild(this.loadingElement);
+        }
+        this.loadingElement.innerHTML = message;
+    }
+
+    public hideLoadingState(): void {
+        if (this.loadingElement?.parentElement) {
+            this.loadingElement.parentElement.removeChild(this.loadingElement);
+            this.loadingElement = null;
+        }
+    }
+
+    public showGameUI(): void {
+        if (!this.gameUIElement) {
+            this.gameUIElement = document.createElement('div');
+            this.gameUIElement.id = 'gameUI';
+            document.body.appendChild(this.gameUIElement);
+        }
+        this.gameUIElement.style.display = 'block';
+    }
+
+    public updateGameState(state: GameState): void {
+        this.currentTeam = state.teams.find(team => team.id === this.currentTeam?.id) || null;
+        this.renderGameState(state);
+    }
+
+    private renderGameState(state: GameState): void {
+        if (!this.ctx) return;
+        
+        // Clear canvas
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Render teams
+        state.teams.forEach(team => {
+            this.renderTeam(team);
+        });
+        
+        // Render UI elements
+        this.renderUI(state);
+    }
+
+    private renderTeam(team: Team): void {
+        // Render buildings
+        team.buildings.forEach(building => {
+            this.renderBuilding(building);
+        });
+    }
+
+    private renderBuilding(building: Building): void {
+        const sprite = this.buildingSprites.get(building.type);
+        if (!sprite || !this.ctx) return;
+        
+        this.ctx.drawImage(
+            sprite,
+            building.position.x - sprite.width / 2,
+            building.position.y - sprite.height / 2
+        );
+    }
+
+    private renderUI(state: GameState): void {
+        if (this.currentTeam) {
+            this.renderResourceDisplay(this.currentTeam);
+        }
+    }
+
+    private renderResourceDisplay(team: Team): void {
+        if (!this.resourceDisplay) return;
+        
+        const resources = team.players[0]?.resources; // Show first player's resources for now
+        if (!resources) return;
+        
+        this.resourceDisplay.innerHTML = `
+            <div>Money: ${resources.money}</div>
+            <div>Research Points: ${resources.researchPoints}</div>
+            <div>Environment Points: ${resources.environmentPoints}</div>
+        `;
+    }
 
     constructor() {
         this.canvas = document.getElementById('gameCanvas') as HTMLCanvasElement;

@@ -25,7 +25,10 @@ export class GameClient {
 
     public join(name: string, role: string): void {
         this.network.sendAction('joinGame', { name, role });
+        this.ui.showLoadingState('Joining game...');
     }
+
+
 
     public build(buildingType: string, position: { x: number, y: number }): void {
         this.network.sendAction('gameAction', {
@@ -73,7 +76,10 @@ export class GameClient {
         if (cooldown) {
             const remaining = Math.max(0, cooldown - Date.now());
             const percentage = 100 - (remaining / 300000 * 100);
-            document.getElementById('abilityCooldown').style.width = `${percentage}%`;
+            const cooldownEl = document.getElementById('abilityCooldown');
+            if (cooldownEl) {
+                cooldownEl.style.width = `${percentage}%`;
+            }
         }
     }
 
@@ -91,7 +97,7 @@ export class GameClient {
     private setupEventListeners(): void {
         this.network.on('gameStateUpdate', (state) => {
             this.gameState = state;
-            this.ui.render(state);
+            this.ui.updateGameState(state);
         });
 
         this.network.on('minigameStart', (data) => {
