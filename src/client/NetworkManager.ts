@@ -1,0 +1,42 @@
+import { io, Socket } from 'socket.io-client';
+import { GameState } from '../game/GameState';
+
+import { EventEmitter } from 'events';
+import { GameState } from '../game/GameState';
+import { GameAction } from '../types/GameTypes';
+
+export class NetworkManager extends EventEmitter {
+    private socket: Socket;
+    private gameState: GameState;
+
+    constructor(serverUrl: string = 'http://localhost:3000') {
+        super();
+        this.socket = io(serverUrl);
+        this.setupEventHandlers();
+    }
+
+    private setupEventHandlers(): void {
+        this.socket.on('gameStateUpdate', (state: any) => {
+            this.emit('gameStateUpdate', state);
+        });
+
+        this.socket.on('minigameStart', (data: any) => {
+            this.emit('minigameStart', data);
+        });
+
+        this.socket.on('minigameEnd', (data: any) => {
+            this.emit('minigameEnd', data);
+        });
+
+        this.socket.on('error', (error: any) => {
+            this.emit('error', error);
+        });
+    }
+
+    public sendAction(action: string, data: any): void {
+        this.socket.emit('gameAction', {
+            type: action,
+            payload: data
+        } as GameAction);
+    }
+}

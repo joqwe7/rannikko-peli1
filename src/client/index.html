@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rannikko Peli</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="login" class="login-screen">
+        <div class="login-container">
+            <h2>Join Game</h2>
+            <input type="text" id="playerName" placeholder="Enter your name" class="input">
+            <select id="playerRole" class="input">
+                <option value="Tutkija">Tutkija (Scientist)</option>
+                <option value="Ympäristönsuojelija">Ympäristönsuojelija (Environmentalist)</option>
+                <option value="Kehittäjä">Kehittäjä (Developer)</option>
+            </select>
+            <button onclick="joinGame()" class="button">Join Game</button>
+        </div>
+    </div>
+
+    <div id="gameContainer" class="game-container" style="display: none;">
+        <div class="resources">
+            <h3>Resources</h3>
+            <div id="resourceDisplay"></div>
+            <div class="special-ability" id="specialAbility">
+                <h4>Special Ability</h4>
+                <button onclick="useSpecialAbility()" class="button">Use Special Ability</button>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="abilityCooldown"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="game-board">
+            <canvas id="gameCanvas" class="game-canvas"></canvas>
+            
+            <div class="minigame-overlay" id="minigameOverlay">
+                <div class="minigame-container">
+                    <h3 id="minigameTitle">Minigame</h3>
+                    <canvas id="minigameCanvas" class="minigame-canvas"></canvas>
+                    <div id="minigameControls" class="controls"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="team-info">
+            <div id="teamScore">
+                <h3>Team Score: <span id="score">0</span></h3>
+            </div>
+            <div class="buildings">
+                <h3>Buildings</h3>
+                <button onclick="startBuilding('Aallonmurtaja')" class="button">Build Breakwater</button>
+                <button onclick="startBuilding('Tutkimuskeskus')" class="button">Build Research Center</button>
+                <button onclick="startBuilding('Ympäristöasema')" class="button">Build Environmental Station</button>
+            </div>
+            <div class="research">
+                <h3>Research</h3>
+                <button onclick="startResearch('Eroosiomallit')" class="button">Research Erosion Models</button>
+                <button onclick="startResearch('Biodiversiteetti')" class="button">Research Biodiversity</button>
+                <button onclick="startResearch('Infrastruktuuriteknologia')" class="button">Research Infrastructure</button>
+            </div>
+            <div class="player-list" id="playerList"></div>
+        </div>
+    </div>
+    
+    <div class="alerts" id="alerts"></div>
+
+    <script type="module">
+        import { GameClient } from './GameClient.ts';
+        import { SoundManager } from './SoundManager.ts';
+        import { AnimationController } from './AnimationController.ts';
+
+        const game = new GameClient();
+        const sound = new SoundManager();
+        const animations = new AnimationController();
+        let currentPlayer = null;
+        let buildMode = false;
+        let selectedBuilding = null;
+        const gameCanvas = document.getElementById('gameCanvas');
+        const ctx = gameCanvas.getContext('2d');
+
+        function joinGame() {
+            const name = document.getElementById('playerName').value;
+            const role = document.getElementById('playerRole').value;
+            game.join(name, role);
+            document.getElementById('login').style.display = 'none';
+            document.getElementById('gameContainer').style.display = 'grid';
+            sound.play('game_start');
+            initializeGameCanvas();
+        }
+
+        function startBuilding(type) {
+            buildMode = true;
+            selectedBuilding = type;
+            sound.play('button_click');
+            showAlert('Click on the map to place ' + type);
+        }
+
+        function startResearch(type) {
+            game.startMinigame('research', type);
+            sound.play('research_start');
+        }
+
+        function useSpecialAbility() {
+            if (currentPlayer) {
+                game.useSpecialAbility(currentPlayer.role);
+                sound.play('special_ability');
+                animations.playEffect('special');
+            }
+        }
+
+        function showAlert(message) {
+            const alertsContainer = document.getElementById('alerts');
+            const alert = document.createElement('div');
+            alert.className = 'alert';
+            alert.textContent = message;
+            alertsContainer.appendChild(alert);
+            setTimeout(() => alert.remove(), 3000);
+        }
+
+        function initializeGameCanvas() {
+            gameCanvas.width = gameCanvas.offsetWidth;
+            gameCanvas.height = gameCanvas.offsetHeight;
+            
+            gameCanvas.addEventListener('click', (e) => {
+                if (buildMode) {
+                    const rect = gameCanvas.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    game.build(selectedBuilding, { x, y });
+                    buildMode = false;
+                    selectedBuilding = null;
+                    sound.play('build_complete');
+                    animations.playEffect('build', { x, y });
+                }
+            });
+        }
+
+        game.on('stateUpdate', (state) => {
+            updateUI(state);
+            updateResources(state);
+            animations.updateAnimations();
+        });
+
+        game.on('minigameStart', (data) => {
+            document.getElementById('minigameOverlay').style.display = 'flex';
+            sound.play('minigame_start');
+        });
+
+        game.on('minigameEnd', (result) => {
+            document.getElementById('minigameOverlay').style.display = 'none';
+            showAlert(`Minigame complete! Score: ${result.score}`);
+            sound.play(result.success ? 'success' : 'failure');
+        });
+
+        function updateUI(state) {
+            // Update player list
+            const playerList = document.getElementById('playerList');
+            playerList.innerHTML = '<h3>Team Members</h3>' + 
+                state.teams.find(t => t.id === currentPlayer?.team)?.players.map(player => 
+                    `<div class="player-item">
+                        <strong>${player.name}</strong> (${player.role})
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: ${player.specialAbilityCharge || 0}%"></div>
+                        </div>
+                    </div>`
+                ).join('');
+
+            // Update score
+            document.getElementById('score').textContent = state.teams.find(t => t.id === currentPlayer?.team)?.score || 0;
+        }
+
+        function updateResources(state) {
+            const player = state.teams.find(t => t.id === currentPlayer?.team)
+                ?.players.find(p => p.id === currentPlayer.id);
+            
+            if (player) {
+                document.getElementById('resourceDisplay').innerHTML = `
+                    <div class="resource-item">
+                        <img src="/assets/money.png" alt="Money" class="resource-icon">
+                        ${player.resources.money}€
+                    </div>
+                    <div class="resource-item">
+                        <img src="/assets/research.png" alt="Research" class="resource-icon">
+                        ${player.resources.researchPoints} TP
+                    </div>
+                    <div class="resource-item">
+                        <img src="/assets/environment.png" alt="Environment" class="resource-icon">
+                        ${player.resources.environmentPoints} YP
+                    </div>
+                `;
+            }
+        }
+
+        // Export necessary functions for HTML
+        window.joinGame = joinGame;
+        window.startBuilding = startBuilding;
+        window.startResearch = startResearch;
+        window.useSpecialAbility = useSpecialAbility;
+    </script>
+</body>
+</html>

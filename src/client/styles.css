@@ -1,0 +1,143 @@
+.game-container {
+    display: grid;
+    grid-template-columns: 200px 1fr 200px;
+    gap: 20px;
+    padding: 20px;
+    height: 100vh;
+}
+
+.resources {
+    background: #f5f5f5;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.resource-item {
+    display: flex;
+    align-items: center;
+    margin: 10px 0;
+}
+
+.resource-icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 10px;
+}
+
+.game-board {
+    position: relative;
+}
+
+.game-canvas {
+    width: 100%;
+    height: 600px;
+    background: #e6f3ff;
+    border-radius: 8px;
+}
+
+.minigame-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+
+.minigame-container {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+}
+
+.minigame-canvas {
+    border: 2px solid #333;
+    margin: 10px 0;
+}
+
+.controls {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.button {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.button:hover {
+    background: #45a049;
+}
+
+.button:disabled {
+    background: #cccccc;
+    cursor: not-allowed;
+}
+
+.team-info {
+    background: #f5f5f5;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.player-list {
+    margin-top: 10px;
+}
+
+.player-item {
+    padding: 8px;
+    border-bottom: 1px solid #ddd;
+}
+
+.special-ability {
+    margin-top: 20px;
+    padding: 10px;
+    background: #e3f2fd;
+    border-radius: 4px;
+}
+
+.progress-bar {
+    height: 20px;
+    background: #eee;
+    border-radius: 10px;
+    overflow: hidden;
+    margin: 5px 0;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #4CAF50;
+    transition: width 0.3s;
+}
+
+.alerts {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.alert {
+    background: white;
+    border-left: 4px solid #4CAF50;
+    padding: 10px 20px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
