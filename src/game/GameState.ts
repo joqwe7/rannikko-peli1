@@ -9,6 +9,7 @@ export class GameState {
     private readonly MAX_TEAMS = 2;
     private combatSystem: CombatSystem;
     private minigameController: MinigameController;
+    private gameStatus: 'waiting' | 'in-progress' | 'finished' = 'waiting';
 
     constructor() {
         this.initGame();
@@ -37,6 +38,7 @@ export class GameState {
         if (team) {
             team.buildings.push(building);
             this.teams.set(teamId, team);
+            this.calculateScores();
         }
     }
 
@@ -49,18 +51,21 @@ export class GameState {
                 if (research.progress >= 100) {
                     research.completed = true;
                 }
+                this.calculateScores();
             }
         }
     }
 
     public handleMinigameAction(player: Player, payload: any): void {
         this.minigameController.handleAction(player, payload);
+        this.calculateScores();
     }
 
     public handleSabotage(player: Player, targetId: string): void {
         const targetTeam = this.teams.get(Number(targetId));
         if (targetTeam) {
             this.combatSystem.executeSabotage(player, targetTeam);
+            this.calculateScores();
         }
     }
 
@@ -68,6 +73,7 @@ export class GameState {
         const team = this.teams.get(player.team);
         if (team) {
             this.combatSystem.executeDefense(team);
+            this.calculateScores();
         }
     }
 
@@ -75,17 +81,16 @@ export class GameState {
         return {
             teams: Array.from(this.teams.entries()),
             gameTime: this.gameTime,
-            gameStatus: this.gameTime >= this.GAME_DURATION ? 'finished' : 'in-progress'
+            gameStatus: this.gameStatus
         };
     }
 
-    private calculateScores(): void {
-        this.teams.forEach((team, teamId) => {
-            let score = 0;
-            score += this.calculateInfrastructureScore(team);
-            score += this.calculateResearchScore(team);
-            team.score = score;
-            this.teams.set(teamId, team);
+    public calculateScores(): void {
+        this.teams.forEach((team) => {
+            const infrastructureScore = this.calculateInfrastructureScore(team);
+            const researchScore = this.calculateResearchScore(team);
+            const environmentScore = this.calculateEnvironmentScore(team);
+            team.score = Math.min(1000, infrastructureScore + researchScore + environmentScore);
         });
     }
 
@@ -106,6 +111,12 @@ export class GameState {
         }, 0);
     }
 
+    private calculateEnvironmentScore(team: Team): number {
+        return team.players.reduce((acc, player) => 
+            acc + Math.floor(player.resources.environmentPoints / 10), 0
+        );
+    }
+
     private initGame(): void {
         // Initialize teams
         for (let i = 0; i < this.MAX_TEAMS; i++) {
@@ -115,19 +126,15 @@ export class GameState {
                 score: 0,
                 buildings: [],
                 researches: [
-                    { type: 'Eroosiomallit', progress: 0, completed: false },
-                    { type: 'Biodiversiteetti', progress: 0, completed: false },
-                    { type: 'Infrastruktuuriteknologia', progress: 0, completed: false }
+                    { type: 'Eroosiomallit', level: 1, progress: 0, completed: false },
+                    { type: 'Biodiversiteetti', level: 1, progress: 0, completed: false },
+                    { type: 'Infrastruktuuriteknologia', level: 1, progress: 0, completed: false }
                 ]
             });
         }
-
-        // Initialize base resources for teams
-        const baseResources: Resources = {
-            money: 100,
-            researchPoints: 50,
-            environmentPoints: 50
-        };
+        
+        this.gameStatus = 'waiting';
+        this.gameTime = 0;
     }
 
     public addPlayer(id: string, name: string, role: PlayerRole): void {
@@ -135,11 +142,57 @@ export class GameState {
             id,
             name,
             role,
-            resources: { money: 0, researchPoints: 0, environmentPoints: 0 },
-            team: -1,
+            resources: { money: 100, researchPoints: 50, environmentPoints: 50 },
+            team: this.assignPlayerToTeam(),
             elo: 1000
         };
         this.players.set(id, player);
+        
+        const team = this.teams.get(player.team);
+        if (team) {
+            team.players.push(player);
+            if (this.checkTeamsReady()) {
+                this.startGame();
+            }
+        }
+    }
+
+    private assignPlayerToTeam(): number {
+        // Find team with fewest players
+        let minPlayers = Infinity;
+        let targetTeam = 0;
+        
+        this.teams.forEach((team, id) => {
+            if (team.players.length < minPlayers) {
+                minPlayers = team.players.length;
+                targetTeam = id;
+            }
+        });
+        
+        return targetTeam;
+    }
+
+    private checkTeamsReady(): boolean {
+        let allTeamsHaveEnoughPlayers = true;
+        this.teams.forEach(team => {
+            if (team.players.length < 1) { // Change to 3 for full game
+                allTeamsHaveEnoughPlayers = false;
+            }
+        });
+        return allTeamsHaveEnoughPlayers;
+    }
+
+    private startGame(): void {
+        this.gameStatus = 'in-progress';
+        this.startGameLoop();
+    }
+
+    private startGameLoop(): void {
+        setInterval(() => {
+            if (this.gameStatus === 'in-progress') {
+                this.handleGameTick();
+            }
+        }, 1000);
     }
 
     public updateResources(): void {
@@ -153,65 +206,25 @@ export class GameState {
                 // Role bonuses
                 switch (player.role) {
                     case 'Tutkija':
-                        player.resources.researchPoints *= 1.25;
+                        player.resources.researchPoints = Math.floor(player.resources.researchPoints * 1.25);
                         break;
                     case 'Ympäristönsuojelija':
-                        player.resources.environmentPoints *= 1.25;
+                        player.resources.environmentPoints = Math.floor(player.resources.environmentPoints * 1.25);
                         break;
                     case 'Kehittäjä':
-                        player.resources.money *= 1.25;
+                        player.resources.money = Math.floor(player.resources.money * 1.25);
                         break;
                 }
             });
         });
     }
 
-    public calculateScores(): void {
-        this.teams.forEach(team => {
-            let score = 0;
-            score += this.calculateEnvironmentScore(team);
-            score += this.calculateInfrastructureScore(team);
-            score += this.calculateResearchScore(team);
-            team.score = Math.min(1000, score);
-        });
-    }
-
-    private calculateEnvironmentScore(team: Team): number {
-        // ...implementation
-        return 0;
-    }
-
-    public getPublicState(): any {
-        return {
-            teams: Array.from(this.teams.values()).map(team => ({
-                id: team.id,
-                score: team.score,
-                buildings: team.buildings,
-                researches: team.researches
-            })),
-            gameTime: this.gameTime
-        };
-    }
-
-    public addBuilding(teamId: number, building: Building): void {
-        const team = this.teams.get(teamId);
-        if (team) {
-            team.buildings.push(building);
-            this.calculateScores();
-        }
-    }
-
-    public addResearch(teamId: number, research: Research): void {
-        const team = this.teams.get(teamId);
-        if (team) {
-            team.researches.push(research);
-            this.calculateScores();
-        }
-    }
-
     public handleGameTick(): void {
+        if (this.gameStatus !== 'in-progress') return;
+
         this.gameTime++;
         this.updateResources();
+        this.calculateScores();
         this.checkWinConditions();
         
         if (this.gameTime >= this.GAME_DURATION) {
@@ -229,35 +242,34 @@ export class GameState {
     }
 
     private endGame(winningTeamId?: number): void {
-        // Handle game end logic
-        this.calculateFinalScores();
-        this.updatePlayerElo(winningTeamId);
+        this.gameStatus = 'finished';
+        this.calculateScores();
+        if (winningTeamId !== undefined) {
+            this.calculateEloChanges(winningTeamId);
+        }
     }
 
-    private updatePlayerElo(winningTeamId?: number): void {
-        // Implement ELO calculation from documentation
+    private calculateEloChanges(winningTeamId: number): void {
+        const winningTeam = this.teams.get(winningTeamId);
+        if (!winningTeam) return;
+
+        this.teams.forEach((team, teamId) => {
+            if (teamId === winningTeamId) return;
+            
+            const expectedScore = this.calculateExpectedScore(winningTeam.score, team.score);
+            const K = 32;
+            
+            winningTeam.players.forEach(player => {
+                player.elo += Math.round(K * (1 - expectedScore));
+            });
+            
+            team.players.forEach(player => {
+                player.elo += Math.round(K * (0 - (1 - expectedScore)));
+            });
+        });
     }
 
-    public async handleAttack(
-        attackerId: string,
-        targetTeamId: number,
-        attackType: string,
-        minigameResult: number
-    ): Promise<boolean> {
-        const attacker = this.players.get(attackerId);
-        const targetTeam = this.teams.get(targetTeamId);
-        
-        if (!attacker || !targetTeam) return false;
-        
-        return this.combatSystem.handleAttack(
-            attacker,
-            targetTeam,
-            attackType,
-            minigameResult
-        );
-    }
-
-    public async startMinigame(playerId: string, type: string): Promise<boolean> {
-        return this.minigameController.startMinigame(type, playerId);
+    private calculateExpectedScore(ratingA: number, ratingB: number): number {
+        return 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
     }
 }

@@ -1,4 +1,5 @@
 export type PlayerRole = 'Tutkija' | 'Ympäristönsuojelija' | 'Kehittäjä';
+export type GameStatus = 'waiting' | 'in-progress' | 'finished';
 
 export interface Resources {
     money: number;
@@ -27,6 +28,17 @@ export interface Building {
     type: 'Aallonmurtaja' | 'Tutkimuskeskus' | 'Ympäristöasema';
     position: { x: number; y: number };
     health: number;
+    owner: number; // Team ID
+    level: number;
+}
+
+export type ResearchType = 'Eroosiomallit' | 'Biodiversiteetti' | 'Infrastruktuuriteknologia';
+
+export interface Research {
+    type: ResearchType;
+    level: number;
+    progress: number;
+    completed: boolean;
 }
 
 export interface Research {
